@@ -8,23 +8,25 @@
 #include "fftw3.h"
 
 #define MAXLENGTH 10000000
-#define STEPS 100000000
+//#define STEPS 100000000
 #define PERIOD 10000
-#define FRAMES 	STEPS/PERIOD  //Total number of frames in the last half of the simulation
+//#define FRAMES 	STEPS/PERIOD  //Total number of frames in the last half of the simulation
 //#define NX 101
 //#define NY 51
 //#define KAPPA 5.0
 #define RUNS 10
 #define NMAX 200
+#define MAXFRAMES 11000
 
 double v[MAXLENGTH]; // The list of measures
-double h_width[FRAMES/2][2*NMAX];
-double width_hFT[FRAMES/2][NMAX+1];
+double h_width[MAXFRAMES/2][2*NMAX];
+double width_hFT[MAXFRAMES/2][NMAX+1];
 double avg_hFT[RUNS][NMAX+1];
 double avg_h[RUNS][2*NMAX];
 double hFT_width_avg[NMAX+1];//Averaging fourier amplitude square across runs
 double error[NMAX+1]; //RMSE error in |hFT|^2
-int NX,NY;
+
+int NX,NY,steps,frames;
 double KAPPA;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
@@ -33,12 +35,9 @@ void print_and_exit(char *, ...); //Print out an error message and exits
 int main(int argc, char **argv)
 {
 
-   int steps,frames;
-
    FILE *Fin;
    char data_file[1024];
-   int i,n,signal_length;
-   //double read_v,v_mean,read_v2;
+   int i,j,n,signal_length;
    double *hd;
    fftw_complex *hFT;
    fftw_plan pdir;
@@ -49,17 +48,12 @@ int main(int argc, char **argv)
        NY = atoi(argv[2]);
        KAPPA = atof(argv[3]);
        steps = atoi(argv[4]);
-       frames = steps/PERIOD;
        break;
-   case 4:
-       NX = atoi(argv[1]);
-       NY = atoi(argv[2]);
-       KAPPA = atof(argv[3]);
-       frames = FRAMES;
    default:
        print_and_exit("Usage Pass command line arguments:NX NY Kappa steps  \n");
    }
 
+   frames = steps/PERIOD;
 
    for(int run=0;run<RUNS;run++)
    {
@@ -68,7 +62,7 @@ int main(int argc, char **argv)
 	      print_and_exit("I could not open binary file %s\n",data_file);
 
 	    //We read the data file
-	    fread(h_width,sizeof(double),FRAMES*NX,Fin);
+	    fread(h_width,sizeof(double),frames*NX,Fin);
 	    fclose(Fin); 
 
 		/*    for(int i=0;i<2*NX;i++)
@@ -91,7 +85,7 @@ int main(int argc, char **argv)
 
 	    // Now fill in the vector hd
 	    //printf("%d\n",n);
-	    for(int j=0;j<frames/2;j++)
+	    for(j=0;j<frames/2;j++)
 	    {
 		for(i=0; i<n; i++)
 		{
@@ -122,20 +116,20 @@ int main(int argc, char **argv)
 	    {
 		//printf("%d",i);
 		avg_hFT[run][i]=0;
-		for(int j=0;j<frames/2;j++)
+		for(j=0;j<frames/2;j++)
 		{
 			avg_hFT[run][i]+=width_hFT[j][i];//Adding fourier amplitudes at same x for different frames
 		}
-		avg_hFT[run][i]=avg_hFT[run][i]/(frames/2);
+		avg_hFT[run][i]/=(frames/2);
 		//printf("\t%f",avg_hFT[i]);
 		//printf("\n");
 	     } 
 
-	     for(i=0;i<2*NX;i++)
+	    for(i=0;i<2*NX;i++)
 	    {
 		//printf("%d",i);
 		avg_h[run][i]=0;
-		for(int j=0;j<frames/2;j++)
+		for(j=0;j<frames/2;j++)
 		{
 			avg_h[run][i]+=h_width[j][i];
 		}
@@ -158,7 +152,7 @@ int main(int argc, char **argv)
 		{
 			hFT_width_avg[i]+=avg_hFT[r][i];
                 }
-                hFT_width_avg[i]=hFT_width_avg[i]/RUNS;
+                hFT_width_avg[i]/=RUNS;
                 //printf("\t%f",hFT_width_avg[i]);
                 //printf("\n");
              }
