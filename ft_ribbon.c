@@ -14,17 +14,17 @@
 //#define NX 101
 //#define NY 51
 //#define KAPPA 5.0
-#define RUNS 10
-#define NMAX 200
+#define RUNS 2
+#define NMAX 2000
 #define MAXFRAMES 11000
 
 double v[MAXLENGTH]; // The list of measures
 double h_width[MAXFRAMES/2][2*NMAX];
-double width_hFT[MAXFRAMES/2][NMAX+1];
-double avg_hFT[RUNS][NMAX+1];
+double width_hFT[MAXFRAMES/2][2*NMAX];
+double avg_hFT[RUNS][2*NMAX];
 double avg_h[RUNS][2*NMAX];
-double hFT_width_avg[NMAX+1];//Averaging fourier amplitude square across runs
-double error[NMAX+1]; //RMSE error in |hFT|^2
+double hFT_width_avg[2*NMAX];//Averaging fourier amplitude square across runs
+double error[2*NMAX]; //RMSE error in |hFT|^2
 
 int NX,NY,steps,frames;
 double KAPPA;
@@ -57,7 +57,8 @@ int main(int argc, char **argv)
 
    for(int run=0;run<RUNS;run++)
    {
-	   sprintf(data_file,"../Sim_dump_ribbon/width_L%d_W%d_k%.1f_r%d.bin",NX,NY,KAPPA,run+1);
+	   sprintf(data_file,"width_L%d_W%d_k%.1f_r%d.bin",NX,NY,KAPPA,run+1);
+	   //printf("%s\n",data_file);
 	   if(NULL==(Fin=fopen(data_file,"rb")))
 	      print_and_exit("I could not open binary file %s\n",data_file);
 
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 	*/
 
 	    n = 2*NX;
-	    signal_length = 4*NX;//Taking into account padding with 0's
+	    signal_length = 2*n;//Taking into account padding with 0's
 	    //v_mean /= n; //divide by the total number of measure
 
 	    hd = (double *) fftw_malloc(sizeof(double)*2*n);
@@ -90,6 +91,8 @@ int main(int argc, char **argv)
 		for(i=0; i<n; i++)
 		{
 			hd[i] = h_width[j][i];//-v_mean;
+			if(run==0 && j==0)
+				printf("%d\t%.8f\n",i,h_width[j][i]);
 		//printf("%.8g\n",hd[i]);
 		}
 		      
@@ -97,22 +100,23 @@ int main(int argc, char **argv)
 			hd[i]=0;	
 
 		// Plan for FFTW
-		pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_MEASURE);
+		pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_ESTIMATE);
 
 		//Execute the FFTW
 		fftw_execute(pdir);
 
 		// hFT contains the FT of h, we need to compute | hFT | ^ 2
 		for (i=0;i<n+1;i++){
-			hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length/2,2));
-			hFT[i][1] = 0;
+			//hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length/2,2));
+			//hFT[i][1] = 0;
 			width_hFT[j][i] = hFT[i][0];
-			//printf("\t%f",width_hFT[i][j]);
+			if(run==0 && j==0)
+				printf("%d\t%.8f\t%.8f\t%.8f\n",i,hFT[i][0]/(n),hFT[i][1]/(n),(hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(n,2)));
 		}
 	    }
 
 
-	    for(i=0;i<NX+1;i++)
+	    for(i=0;i<n+1;i++)
 	    {
 		//printf("%d",i);
 		avg_hFT[run][i]=0;
@@ -125,7 +129,7 @@ int main(int argc, char **argv)
 		//printf("\n");
 	     } 
 
-	    for(i=0;i<2*NX;i++)
+	    for(i=0;i<n+1;i++)
 	    {
 		//printf("%d",i);
 		avg_h[run][i]=0;
@@ -144,7 +148,7 @@ int main(int argc, char **argv)
 	}
 
 	/*	Averaging |hFT|^2 across runs	*/
-	    for(i=0;i<NX+1;i++)
+	    for(i=0;i<n+1;i++)
             {
 		hFT_width_avg[i]=0;
 		//printf("%d",i);
@@ -158,16 +162,16 @@ int main(int argc, char **argv)
              }
 
 	/*	RMSE error in |hFT|^2	*/
-	    for(i=0;i<NX+1;i++)
+	    for(i=0;i<n+1;i++)
             {
-		printf("%d\t%.8g\t",i,hFT_width_avg[i]);
+		//printf("%d\t%.8g\t",i,hFT_width_avg[i]);
 		error[i]=0;
 		for(int r=0;r<RUNS;r++)
                 {
 			error[i] += pow(avg_hFT[r][i]-hFT_width_avg[i],2);
 		}
 		error[i] = sqrt(error[i]/RUNS);
-		printf("%.8g\n",error[i]);
+		//printf("%.8g\n",error[i]);
 	    }
 	   
 	    fftw_destroy_plan(pdir);

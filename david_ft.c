@@ -90,11 +90,11 @@ int main(int argc, char **argv)
     for(i=0; i<n; i++)
       corr_h[i] /= (n-i);
 
-    for (i=0;i<n;i++)
-      printf("%d %.8g\n", i, corr_h[i]/corr_h[0]);
-
     //for (i=0;i<n;i++)
-      //printf("%d %.8g\n", i, hFT[i][0]);
+      //printf("%d %.8g\n", i, corr_h[i]/corr_h[0]);
+
+    for (i=0;i<n;i++)
+      printf("%d %.8g\n", i, (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(n,2)));
 
     fftw_destroy_plan(pdir);
     fftw_destroy_plan(pinv);
