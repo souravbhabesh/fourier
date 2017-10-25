@@ -3,6 +3,8 @@ fcos
 ftr
 ftn
 ftsin
+box
+rib
 *.bin
 *.txt
 *.o

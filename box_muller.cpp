@@ -10,7 +10,7 @@
 #define MAXFRAMES 11000
 #define NMAX 200
 #define PERIOD 10000
-#define RUN 2
+#define RUN 10
 
 
 double h_width[MAXFRAMES/2][2*NMAX];
@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 	       print_and_exit("Usage Pass command line arguments: NX NY KAPPA steps\n"); //total steps
 	   }
 	frames = steps/PERIOD;
-	printf("frames: %d\n",frames);       
+	//printf("frames: %d\n",frames);       
 
 	for(r=0;r<RUN;r++)
 	{
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 		{
 			for(j=0;j<2*NX;j++)
 			{
-				h_width[i][j] = 0.7*sin(2*M_PI*20*j/(2*NX))+ sin(2*M_PI*40*j/(2*NX));//generateGaussianNoise(0,.1);
+				h_width[i][j] = 0.7*sin(2*M_PI*10*j/(2*NX))+ sin(2*M_PI*120*j/(2*NX))+generateGaussianNoise(0,.1);
 				//generateGaussianNoise(0,1.0);// 0.7*sin(2*M_PI*50*j/(2*NX))+ sin(2*M_PI*120*j/(2*NX));
 				if(i==0 && r==0)
 					printf("%d\t%.8f\n",j,h_width[i][j]);
