@@ -52,6 +52,9 @@ int main(int argc, char **argv)
     hd = (double *) fftw_malloc(sizeof(double)*2*n);
     hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
 
+   // Plan for FFTW
+    pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_ESTIMATE);
+
     // Now fill in the vector hd
     //printf("%d\n",n);
     for(i=0; i<n; i++)
@@ -62,9 +65,6 @@ int main(int argc, char **argv)
       
     for(i=n; i<2*n; i++)//Padding with 0's to make it periodic
       hd[i]=0;	
-
-    // Plan for FFTW
-    pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_ESTIMATE);
 
     //Execute the FFTW
     fftw_execute(pdir);

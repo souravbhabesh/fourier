@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 	for(i=0;i<num;i++)
 	{
 		//printf("%d\t%.8f\n",i,generateGaussianNoise(0,0.1));
-		printf("%.8f\n",generateGaussianNoise(0,0.1));
+		printf("%.8f\n",0.7*sin(2*M_PI*10*i/(2*num)) + sin(2*M_PI*120*i/(2*num)) + generateGaussianNoise(0,0.1));
 	}
 	return 0;
 }

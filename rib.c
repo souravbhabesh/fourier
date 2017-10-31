@@ -9,19 +9,19 @@
 
 #define MAXLENGTH 10000000
 #define PERIOD 10000
-#define RUNS 10
+#define RUNMAX 20
 #define NMAX 2000
 #define MAXFRAMES 11000
 
 double v[MAXLENGTH]; // The list of measures
 double h_width[MAXFRAMES/2][2*NMAX];
 double power_spectrum_frame[MAXFRAMES/2][2*NMAX];
-double avg_hFT[RUNS][2*NMAX];
-double avg_h[RUNS][2*NMAX];
+double avg_hFT[RUNMAX][2*NMAX];
+double avg_h[RUNMAX][2*NMAX];
 double hFT_width_avg[2*NMAX];//Averaging fourier amplitude square across runs
 double error[2*NMAX]; //RMSE error in |hFT|^2
 
-int NX,NY,steps,frames;
+int NX,NY,RUNS,steps,frames;
 double KAPPA;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
@@ -38,14 +38,15 @@ int main(int argc, char **argv)
    fftw_plan pdir;
 
    switch (argc){
-   case 5:
+   case 6:
        NX = atoi(argv[1]);
        NY = atoi(argv[2]);
        KAPPA = atof(argv[3]);
-       steps = atoi(argv[4]);
+       RUNS = atoi(argv[4]);
+       steps = atoi(argv[5]);
        break;
    default:
-       print_and_exit("Usage Pass command line arguments:NX NY Kappa steps  \n");
+       print_and_exit("Usage Pass command line arguments:NX NY Kappa RUNS steps  \n");
    }
 
    frames = steps/PERIOD;
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
 
    for(int run=0;run<RUNS;run++)
    {
-	   sprintf(data_file,"../Sim_dump_ribbon/width_L%d_W%d_k%.1f_r%d.bin",NX,NY,KAPPA,run+1);
+	   sprintf(data_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/width.bin",NX,NY,KAPPA,run+1);
 	   //printf("%s\n",data_file);
 	   if(NULL==(Fin=fopen(data_file,"rb")))
 	      print_and_exit("I could not open binary file %s\n",data_file);
@@ -69,7 +70,7 @@ int main(int argc, char **argv)
 	    // Plan for FFTW	
 	    pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_PATIENT);
 
-	    // Now fill in the vector hd
+	    // Now fill in the vector hd; initializing of input array should be done after creating the plan
 	    for(j=0;j<frames/2;j++)
 	    {
 		for(i=0; i<n; i++)
@@ -128,6 +129,8 @@ int main(int argc, char **argv)
             for(i=0;i<n+1;i++)
             {
                 printf("%d\t%.8g\t",i,hFT_width_avg[i]);
+                //if (i==1)
+                	//printf("%.8f\t%.8f\n",sqrt(3)*(NY-1)/(2*NX-1),hFT_width_avg[i]/hFT_width_avg[i+1]);
                 error[i]=0;
                 for(int r=0;r<RUNS;r++)
                 {
@@ -137,7 +140,8 @@ int main(int argc, char **argv)
                 printf("%.8g\n",error[i]);
             }  
 
-    printf("Cleaning up\n");
+	
+    //printf("Cleaning up\n");
     fftw_destroy_plan(pdir);
     fftw_free(hd);
     fftw_free(hFT);
