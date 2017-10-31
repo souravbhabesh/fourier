@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
 
    // Plan for FFTW
-    pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_ESTIMATE);
+    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_ESTIMATE);
 
     // Now fill in the vector hd
     //printf("%d\n",n);
@@ -63,14 +63,14 @@ int main(int argc, char **argv)
 	//printf("%.8g\n",hd[i]);
       }
       
-    for(i=n; i<2*n; i++)//Padding with 0's to make it periodic
-      hd[i]=0;	
+    //for(i=n; i<2*n; i++)//Padding with 0's to make it periodic
+      //hd[i]=0;	
 
     //Execute the FFTW
     fftw_execute(pdir);
 
     // hFT contains the FT of h, we need to compute | hFT | ^ 2
-    for (i=0;i<n+1;i++){
+    for (i=0;i<(n/2) +1;i++){
       hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length,2));
       hFT[i][1] = 0;
     }

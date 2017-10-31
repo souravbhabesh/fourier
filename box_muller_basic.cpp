@@ -44,20 +44,28 @@ double generateGaussianNoise(double mu, double sigma)
 
 int main(int argc, char **argv)
 {
-	int i,num;
+	int i,num,toggle;
 	switch (argc){
-	   case 2:
+	   case 3:
 	       num = atoi(argv[1]);
+	       toggle = atoi(argv[2]);
 	       break;
 	default:
-	       print_and_exit("Usage Pass command line arguments:Number of Gaussian RN to be generated  \n");
+	       print_and_exit("Usage Pass command line arguments:Number of Gaussian RN to be generated  and toggle value 1 2 3 4 5\n");
 	   }       
 	
 	for(i=0;i<num;i++)
 	{
-		//printf("%d\t%.8f\n",i,generateGaussianNoise(0,0.1));
-		printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num))+ sin(2*M_PI*10*i/(2*num))+ generateGaussianNoise(0,0.1));
-		//printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num)));
+		if(toggle == 1)
+			printf("%d\t%.8f\n",i,generateGaussianNoise(0,0.1));
+		if(toggle == 2)
+			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*10*i/(2*num)));
+		if(toggle == 3)
+			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*120*i/(2*num)));
+		if(toggle == 4)
+			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num))+ sin(2*M_PI*10*i/(2*num)));
+		if(toggle == 5)
+			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num))+ sin(2*M_PI*10*i/(2*num))+ generateGaussianNoise(0,0.5));
 
 	}
 	return 0;
