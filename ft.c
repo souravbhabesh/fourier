@@ -46,10 +46,10 @@ int main(int argc, char **argv)
       n++;
     }
 
-    signal_length = i;
+    signal_length = n;
     v_mean /= n; //divide by the total number of measure
 
-    hd = (double *) fftw_malloc(sizeof(double)*2*n);
+    hd = (double *) fftw_malloc(sizeof(double)*n);
     hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
 
    // Plan for FFTW
@@ -70,8 +70,8 @@ int main(int argc, char **argv)
     fftw_execute(pdir);
 
     // hFT contains the FT of h, we need to compute | hFT | ^ 2
-    for (i=0;i<(n/2) +1;i++){
-      hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length,2));
+    for (i=0;i<(n/2)+1;i++){
+      hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length/2,2));
       hFT[i][1] = 0;
     }
 

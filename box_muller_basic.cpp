@@ -59,13 +59,13 @@ int main(int argc, char **argv)
 		if(toggle == 1)
 			printf("%d\t%.8f\n",i,generateGaussianNoise(0,0.1));
 		if(toggle == 2)
-			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*10*i/(2*num)));
+			printf("%d\t%.8f\n",i,sin(2*M_PI*10*i/(2*num)));
 		if(toggle == 3)
 			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*120*i/(2*num)));
 		if(toggle == 4)
 			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num))+ sin(2*M_PI*10*i/(2*num)));
 		if(toggle == 5)
-			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num))+ sin(2*M_PI*10*i/(2*num))+ generateGaussianNoise(0,0.5));
+			printf("%d\t%.8f\n",i,0.7*sin(2*M_PI*60*i/(2*num))+ sin(2*M_PI*10*i/(2*num))+ generateGaussianNoise(0,0.1));
 
 	}
 	return 0;

@@ -14,12 +14,12 @@
 #define MAXFRAMES 11000
 
 double v[MAXLENGTH]; // The list of measures
-double h_width[MAXFRAMES/2][2*NMAX];
-double power_spectrum_frame[MAXFRAMES/2][2*NMAX];
-double avg_hFT[RUNMAX][2*NMAX];
-double avg_h[RUNMAX][2*NMAX];
-double hFT_width_avg[2*NMAX];//Averaging fourier amplitude square across runs
-double error[2*NMAX]; //RMSE error in |hFT|^2
+double h_width[MAXFRAMES][NMAX];
+double power_spectrum_frame[MAXFRAMES][NMAX];
+double avg_hFT[RUNMAX][NMAX];
+double avg_h[RUNMAX][NMAX];
+double hFT_width_avg[NMAX];//Averaging fourier amplitude square across runs
+double error[NMAX]; //RMSE error in |hFT|^2
 
 int NX,NY,RUNS,steps,frames;
 double KAPPA;
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 
    frames = steps/PERIOD;
    n = 2*NX;
-   signal_length = 2*n;//Taking into account padding with 0's
+   signal_length = n;
 
    for(int run=0;run<RUNS;run++)
    {
@@ -64,11 +64,11 @@ int main(int argc, char **argv)
 	    fread(h_width,sizeof(double),frames*NX,Fin);
 	    fclose(Fin); 
 
-	    hd = (double *) fftw_malloc(sizeof(double)*2*n);
-	    hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
+	    hd = (double *) fftw_malloc(sizeof(double)*n);
+	    hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*((n/2)+1));
 
 	    // Plan for FFTW	
-	    pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_PATIENT);
+	    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_PATIENT);
 
 	    // Now fill in the vector hd; initializing of input array should be done after creating the plan
 	    for(j=0;j<frames/2;j++)
@@ -81,25 +81,25 @@ int main(int argc, char **argv)
 			//printf("%.8g\n",hd[i]);
 		}
 		      
-	   	for(i=n; i<2*n; i++)//Padding with 0's to make it periodic
-			hd[i]=0;	
+	   //for(i=n; i<2*n; i++)//Padding with 0's to make it periodic
+		//hd[i]=0;	
 
-	   	//Execute the FFTW
-	   	fftw_execute(pdir);
+	   //Execute the FFTW
+	   fftw_execute(pdir);
 
-	   	// hFT contains the FT of h, we need to compute | hFT | ^ 2
-	   	for (i=0;i<n+1;i++)
-	   		{
-				//hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length/2,2));
-				//hFT[i][1] = 0;
-				power_spectrum_frame[j][i] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(n,2));
-				//if(run==0 && j==0)
-					//printf("%d\t%.8f\t%.8f\t%.8f\n",i,hFT[i][0]/(n),hFT[i][1]/(n),power_spectrum_frame[j][i]);
-	   		}
+	   // hFT contains the FT of h, we need to compute | hFT | ^ 2
+	   for (i=0;i<(n/2)+1;i++)
+	   	{
+			//hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length/2,2));
+			//hFT[i][1] = 0;
+			power_spectrum_frame[j][i] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(n/2,2));
+			//if(run==0 && j==0)
+				//printf("%d\t%.8f\t%.8f\t%.8f\n",i,hFT[i][0]/(n),hFT[i][1]/(n),power_spectrum_frame[j][i]);
+	   	}
 	     }
 
 	     //Adding fourier amplitudes at same x for different frames same run
-	     for(i=0;i<n+1;i++)
+	     for(i=0;i<(n/2)+1;i++)
            	{
                 	avg_hFT[run][i]=0;
                 	for(j=0;j<frames/2;j++)
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 	   
 
     /* Average of power spectrum across runs	*/
-    for(i=0;i<n+1;i++)
+    for(i=0;i<(n/2)+1;i++)
     {
 	hFT_width_avg[i]=0;
 	//printf("%d",i);
@@ -126,9 +126,9 @@ int main(int argc, char **argv)
     }
 
    /*      RMSE error in power spectrum   */
-            for(i=0;i<n+1;i++)
+            for(i=0;i<(n/2)+1;i++)
             {
-                printf("%d\t%.8g\t",i,hFT_width_avg[i]);
+                printf("%d\t%.8g\t",i,hFT_width_avg[i]/hFT_width_avg[0]);
                 //if (i==1)
                 	//printf("%.8f\t%.8f\n",sqrt(3)*(NY-1)/(2*NX-1),hFT_width_avg[i]/hFT_width_avg[i+1]);
                 error[i]=0;
