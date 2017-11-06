@@ -32,33 +32,42 @@ void print_and_exit(char *, ...); //Print out an error message and exits
 int main(int argc, char **argv)
 {
 
-   FILE *Fin;
-   char data_file[1024];
+   FILE *Fin,*file;
+   char data_file[1024],line[256];
    int i,j,n,signal_length;
    double *hd;
    fftw_complex *hFT;
    fftw_plan pdir;
+   char const* fileName;
 
    switch (argc){
    case 6:
        NX = atoi(argv[1]);
        NY = atoi(argv[2]);
        KAPPA = atof(argv[3]);
-       RUNS = atoi(argv[4]);
-       steps = atoi(argv[5]);
+       steps = atoi(argv[4]);
+       fileName = argv[5];
        break;
    default:
-       print_and_exit("Usage Pass command line arguments:NX NY Kappa RUNS steps  \n");
+       print_and_exit("Usage Pass command line arguments:NX NY Kappa steps runlist.dat\n");
    }
 
+   if(NULL==(file=fopen(fileName,"r")))  
+	print_and_exit("I could not open file with simulation run numbers %s\n",fileName);
+ 
    frames = steps/PERIOD;
    n = 2*NX; // Number of real data points for which FFT is taken
    signal_length = n;
-   JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
+   //JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
 
-   for(int run=0;run<RUNS;run++)
+   //for(int run=0;run<RUNS;run++)
+   
+   int runnum;
+   RUNS = 0;
+   while (!feof (file))
    {
-	   sprintf(data_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/width.bin",NX,NY,KAPPA,run+1);
+	   fscanf (file, "%d", &runnum); // file contains the runs to be analyzed
+	   sprintf(data_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/width.bin",NX,NY,KAPPA,runnum);
 	   //printf("%s\n",data_file);
 	   if(NULL==(Fin=fopen(data_file,"rb")))
 	      print_and_exit("I could not open binary file %s\n",data_file);
@@ -103,17 +112,20 @@ int main(int argc, char **argv)
 	     }
 
 	     //Adding fourier amplitudes at same x for different frames same run
-	     for(i=0;i<((n/2)+1);i++)
-           	{
-                	avg_hFT[run][i]=0;
-                	for(j=0;j<frames/2;j++)
-                	{
-                        	avg_hFT[run][i]+=power_spectrum_frame[j][i];
-                	}
-                	avg_hFT[run][i]/=(frames/2);
-                	//printf("%d\t%.8f\n",run,avg_hFT[run][i]);
-           	} 
+     for(i=0;i<((n/2)+1);i++)
+	{
+		avg_hFT[RUNS][i]=0;
+		for(j=0;j<frames/2;j++)
+		{
+			avg_hFT[RUNS][i]+=power_spectrum_frame[j][i];
+		}
+		avg_hFT[RUNS][i]/=(frames/2);
+		//printf("%d\t%.8f\n",run,avg_hFT[run][i]);
+	}
+	RUNS++; 
     }
+
+    JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
 	   
 
     /* Average of power spectrum across runs	*/
@@ -132,13 +144,13 @@ int main(int argc, char **argv)
    /*      RMSE error in power spectrum   */
     for(i=0;i<((n/2)+1);i++)
     {
-	//printf("%d\t%.8g\t",i,hFT_width_avg[i]/hFT_width_avg[0]);
+	//printf("%d\t%.8g\t",i,hFT_width_avg[i]);
 	//if (i==1)
 		//printf("%.8f\t%.8f\n",sqrt(3)*(NY-1)/(2*NX-1),hFT_width_avg[i]/hFT_width_avg[i+1]);
 	error[i]=0;
 	for(int r=0;r<RUNS;r++)
 	{
-		error[i] += pow(((avg_hFT[r][i]/avg_hFT[r][0])-(hFT_width_avg[i]/hFT_width_avg[0])),2);
+		error[i] += pow((avg_hFT[r][i] - hFT_width_avg[i]),2);
 	}
 	error[i] = sqrt(error[i]/RUNS);
 	//printf("%.8g\n",error[i]);
@@ -152,7 +164,7 @@ int main(int argc, char **argv)
 	jk_blocks[i][JK_BIN_COUNT]=0;
 	for(j=0;j<JK_BIN_COUNT;j++)
 	{
-		jk_blocks[i][JK_BIN_COUNT] += avg_hFT[j][i]/avg_hFT[j][0]; //summing avg_hFT for all runs at each i
+		jk_blocks[i][JK_BIN_COUNT] += avg_hFT[j][i]; //summing avg_hFT for all runs at each i
 	}
     }    
 
@@ -161,7 +173,7 @@ int main(int argc, char **argv)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         { 
-		jk_blocks[i][j]= (jk_blocks[i][JK_BIN_COUNT]-(avg_hFT[j][i]/avg_hFT[j][0]))/(JK_BIN_COUNT-1);	
+		jk_blocks[i][j]= (jk_blocks[i][JK_BIN_COUNT] - avg_hFT[j][i])/(JK_BIN_COUNT-1);	
 	}
     }
 
