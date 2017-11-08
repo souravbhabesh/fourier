@@ -6,6 +6,7 @@
 #include<strings.h>
 #include<stdarg.h>//Needed for the function print_and_exit()
 #include "fftw3.h"
+#define M_PI 3.14159265358979323846
 
 #define MAXLENGTH 10000000
 #define PERIOD 10000
@@ -25,6 +26,7 @@ double error[NMAX]; //RMSE error in |hFT|^2
 
 int NX,NY,RUNS,steps,frames,JK_BIN_COUNT;
 double KAPPA;
+double NORM;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
 
@@ -81,7 +83,7 @@ int main(int argc, char **argv)
 	    hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*((n/2)+1));
 
 	    // Plan for FFTW	
-	    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_PATIENT);
+	    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_MEASURE);
 
 	    // Now fill in the vector hd; initializing of input array should be done after creating the plan
 	    for(j=0;j<frames/2;j++)
@@ -120,8 +122,16 @@ int main(int argc, char **argv)
 			avg_hFT[RUNS][i]+=power_spectrum_frame[j][i];
 		}
 		avg_hFT[RUNS][i]/=(frames/2);
+		NORM = avg_hFT[RUNS][1];
 		//printf("%d\t%.8f\n",run,avg_hFT[run][i]);
 	}
+
+    for(i=0;i<((n/2)+1);i++)
+        {
+		avg_hFT[RUNS][i]/=NORM;
+		//printf("%d\t%.8f\n",RUNS,avg_hFT[RUNS][i]);
+	}  
+
 	RUNS++; 
     }
 
@@ -204,7 +214,7 @@ int main(int argc, char **argv)
 	jk_error_term2[i] = jk_error_term2[i] * jk_error_term2[i];
         /*	JK Error	*/
 	jk_error[i] = sqrt((JK_BIN_COUNT-1)*(jk_error_term1[i] - jk_error_term2[i]));
-	printf ("%d\t%.8g\t%.8g\n",i,jk_blocks[i][JK_BIN_COUNT]/JK_BIN_COUNT,jk_error[i]);	
+	printf ("%d\t%.8g\t%.8g\t%.8g\n",i,i*(2*M_PI/n),jk_blocks[i][JK_BIN_COUNT]/JK_BIN_COUNT,jk_error[i]);	
     }
 
     //printf("Cleaning up\n");
