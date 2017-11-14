@@ -11,17 +11,12 @@
 #define MAXLENGTH 10000000
 #define PERIOD 10000
 #define RUNMAX 20
-#define NMAX 2000
-#define MAXFRAMES 11000
+#define NMAX 20000
+#define MAXFRAMES 20000
 
 double cnode[RUNMAX][MAXFRAMES];
 double tseries[MAXFRAMES];
-double v[MAXLENGTH]; // The list of measures
-double h_width[MAXFRAMES][NMAX];
-double power_spectrum_frame[MAXFRAMES][NMAX];
-double avg_hFT[RUNMAX][NMAX];
-double avg_h[RUNMAX][NMAX];
-double hFT_width_avg[NMAX];//Averaging fourier amplitude square across runs
+double autocorr[RUNMAX][MAXFRAMES];
 double jk_blocks[NMAX][RUNMAX];
 double jk_error[NMAX];
 double error[NMAX]; //RMSE error in |hFT|^2
@@ -59,7 +54,7 @@ int main(int argc, char **argv)
 	print_and_exit("I could not open file with simulation run numbers %s\n",fileName);
  
    frames = steps/PERIOD;
-   n = frames; // Number of real data points for which FFT is taken
+   n = frames/2; // Number of real data points for which FFT is taken
    signal_length = n;
    //JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
 
@@ -70,190 +65,104 @@ int main(int argc, char **argv)
    if(NULL==(Fin=fopen(data_file,"rb")))
    	print_and_exit("I could not open binary file %s\n",data_file);
 
+   //printf("frames %d\n",frames);
+
    //We read the data file
-   fread(cnode,sizeof(double),frames*RUNMAX,Fin);
+   fread(cnode,sizeof(double),RUNMAX*MAXFRAMES,Fin);
    fclose(Fin);
 
    for(int i=0;i<frames;i++)
    {
-	//printf("%d\t%.8f\n",i,cnode[0][i]);
-	tseries[i]=0;
-   }
- 
-   for(int i=0;i<frames;i++)
-   {
-	for(int r=0;r<10;r++)
-	{
-		tseries[i] += cnode[r][i];
-	}
+	//printf("%d\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\n",i,cnode[0][i],cnode[1][i],cnode[2][i],cnode[3][i],cnode[4][i],cnode[5][i]);
+	//tseries[i]=cnode[0][i];
    }
 
+   int runnum,run_cnt=0;
+   while (fscanf(file, "%d", &runnum) == 1)// 1 is returned if fscanf reads a number
+   {
+	   //printf("Run # %d \n",runnum);
+	   hd = (double *) fftw_malloc(sizeof(double)*n*2);
+	   corr_h = (double *) fftw_malloc(sizeof(double)*n*2);	
+	   hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
+
+	   // We prepare the FFTW
+	   pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_MEASURE);
+	   pinv = fftw_plan_dft_c2r_1d(2*n,hFT,corr_h,FFTW_MEASURE);
+
+	   // Now fill in the vector hd
+	   for(i=0; i<n; i++)
+	     hd[i] = cnode[runnum-1][i];
+	   for(i=n; i<2*n; i++)
+	     hd[i]=0;
+
+	   // We execute the FFTW
+	   fftw_execute(pdir); 
+
+	   // hFT contains the FT of h, we need to compute | hFT | ^ 2
+           for (i=0;i<n+1;i++){
+      		hFT[i][0] = hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1];
+      		hFT[i][1] = 0;
+    		}
+    	   fftw_execute(pinv);
+
+	   // The inverse FT of | hFT | ^ 2 is autocorrelation, but we must
+    	   //normalize
+    	   for(i=0; i<n; i++)
+	   {
+      		corr_h[i] /= (n-i);
+		autocorr[runnum-1][i] = corr_h[i]/corr_h[0];
+	   }
+
+	   //for (i=0;i<n;i++)
+      		//printf("%d %.8g\n", i, (hFT[i][0])/(pow(n,2)));
+
+	  //for (i=0;i<n;i++)
+      		//printf("%d %.8g\n", i, corr_h[i]/corr_h[0]); 
+	  run_cnt++;
+   }
 /*
-   for(int i=0;i<frames;i++)
-   {
-        printf("%d\t%.8f\n",i,tseries[i]/10);
-   }
-*/
-
-   //  Allocating memory for FFT
-   hd = (double *) fftw_malloc(sizeof(double)*n*2);
-   hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
-   corr_h = (double *) fftw_malloc(sizeof(double)*n*2);
-
-   pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_MEASURE);
-   pinv = fftw_plan_dft_c2r_1d(2*n,hFT,corr_h,FFTW_MEASURE);   
-
-
-   for(j=0;j<frames;j++)
-   {
-	hd[j] = tseries[i]/10;
-   }
-
-   for(j=frames;j<n;j++)
-   {
-        hd[j] = 0;
-   }
-
-   fftw_execute(pdir);
-
-   for (i=0;i<n+1;i++){
-      hFT[i][0] = hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1];
-      hFT[i][1] = 0;
-    }
-
-   fftw_execute(pinv);
-
-   for(i=0; i<n; i++)
-      corr_h[i] /= (n-i);
-
    for (i=0;i<n;i++)
-      printf("%d %.8g\n", i, corr_h[i]/corr_h[0]);
-
+   	printf("%d %.8g %.8g %.8g %.8g %.8g\n", i, autocorr[0][i],autocorr[1][i],autocorr[2][i],autocorr[3][i],autocorr[4][i]);
+*/
    fftw_destroy_plan(pdir);
    fftw_destroy_plan(pinv);
    fftw_free(hd);
    fftw_free(hFT);
    fftw_free(corr_h);
 
- 
-/* 
-   int runnum;
-   RUNS = 0;
-   while (!feof (file))
-   {
-	   fscanf (file, "%d", &runnum); // file contains the runs to be analyzed
-
-	    //	Allocating memory for FFT	
-	    hd = (double *) fftw_malloc(sizeof(double)*n);
-	    hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*((n/2)+1));
-
-	    // Plan for FFTW	
-	    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_PATIENT);
-
-	    // Now fill in the vector hd; initializing of input array should be done after creating the plan
-	    for(j=0;j<frames/2;j++)
-	    {
-		for(i=0; i<n; i++)
-		{
-			hd[i] = h_width[j][i];
-			//if(run==0 && j==0)
-				//printf("%d\t%.8f\n",i,h_width[j][i]);
-			//printf("%.8g\n",hd[i]);
-		}
-	   	//	Padding with 0's to make it periodic for Correlation evaluation	
-	   	//for(i=n; i<2*n; i++)
-			//hd[i]=0;	
-
-	   	//Execute the FFTW
-	   	fftw_execute(pdir);
-
-	   	// hFT contains the FT of hd, we need to compute | hFT | ^ 2
-	   	for (i=0;i<((n/2)+1);i++)
-	   	{
-			//hFT[i][0] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(signal_length/2,2));
-			//hFT[i][1] = 0;
-			power_spectrum_frame[j][i] = (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(n/2,2));
-			//if(run==0 && j==0)
-				//printf("%d\t%.8f\t%.8f\t%.8f\n",i,hFT[i][0]/(n),hFT[i][1]/(n),power_spectrum_frame[j][i]);
-	   	}
-	     }
-
-	     //Adding fourier amplitudes at same x for different frames same run
-     for(i=0;i<((n/2)+1);i++)
-	{
-		avg_hFT[RUNS][i]=0;
-		for(j=0;j<frames/2;j++)
-		{
-			avg_hFT[RUNS][i]+=power_spectrum_frame[j][i];
-		}
-		avg_hFT[RUNS][i]/=(frames/2);
-		//printf("%d\t%.8f\n",run,avg_hFT[run][i]);
-	}
-	RUNS++; 
-    }
-
-    JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
+    JK_BIN_COUNT = run_cnt; //Number of Jack Knife bins
 	   
-
-    // Average of power spectrum across runs	
-    for(i=0;i<((n/2)+1);i++)
-    {
-	hFT_width_avg[i]=0;
-	//printf("%d",i);
-	for(int r=0;r<RUNS;r++)
-	{
-		hFT_width_avg[i]+=avg_hFT[r][i];
-	}
-	hFT_width_avg[i]/=RUNS;
-	//printf("%.8f",hFT_width_avg[i]);
-    }
-
-   //      RMSE error in power spectrum   
-    for(i=0;i<((n/2)+1);i++)
-    {
-	//printf("%d\t%.8g\t",i,hFT_width_avg[i]);
-	//if (i==1)
-		//printf("%.8f\t%.8f\n",sqrt(3)*(NY-1)/(2*NX-1),hFT_width_avg[i]/hFT_width_avg[i+1]);
-	error[i]=0;
-	for(int r=0;r<RUNS;r++)
-	{
-		error[i] += pow((avg_hFT[r][i] - hFT_width_avg[i]),2);
-	}
-	error[i] = sqrt(error[i]/RUNS);
-	//printf("%.8g\n",error[i]);
-    }  
-
     //		Jack Knife Error estimation	
     
     //		Total of Jack Knife blocks at each sampling interval	
-    for(i=0;i<((n/2)+1);i++)
+    for(i=0;i<n;i++)
     {
 	jk_blocks[i][JK_BIN_COUNT]=0;
 	for(j=0;j<JK_BIN_COUNT;j++)
 	{
-		jk_blocks[i][JK_BIN_COUNT] += avg_hFT[j][i]; //summing avg_hFT for all runs at each i
+		jk_blocks[i][JK_BIN_COUNT] += autocorr[j][i]; //summing IFT value at each i for different runs
 	}
     }    
 
     //		Jack Knife Blocking	
-    for(i=0;i<((n/2)+1);i++)
+    for(i=0;i<n;i++)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         { 
-		jk_blocks[i][j]= (jk_blocks[i][JK_BIN_COUNT] - avg_hFT[j][i])/(JK_BIN_COUNT-1);	
+		jk_blocks[i][j]= (jk_blocks[i][JK_BIN_COUNT] - autocorr[j][i])/(JK_BIN_COUNT-1);	
 	}
     }
 
     double jk_error_term1[NMAX],jk_error_term2[NMAX];
     //		Jack Knife Error	
-    for(i=0;i<((n/2)+1);i++)
+    for(i=0;i<n;i++)
     {
 	jk_error[i]=0;
 	jk_error_term1[i]=0;
 	jk_error_term2[i]=0;
     } 
 
-    for(i=0;i<((n/2)+1);i++)
+    for(i=0;i<n;i++)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         {
@@ -262,7 +171,7 @@ int main(int argc, char **argv)
 	jk_error_term1[i] = (1.0/JK_BIN_COUNT) * jk_error_term1[i];
     }
 
-    for(i=0;i<((n/2)+1);i++)
+    for(i=0;i<n;i++)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         {
@@ -271,15 +180,9 @@ int main(int argc, char **argv)
 	jk_error_term2[i] = jk_error_term2[i] * jk_error_term2[i];
         //	JK Error	
 	jk_error[i] = sqrt((JK_BIN_COUNT-1)*(jk_error_term1[i] - jk_error_term2[i]));
-	printf ("%.8g\t%.8g\t%.8g\n",i*(2*M_PI/n),jk_blocks[i][JK_BIN_COUNT]/JK_BIN_COUNT,jk_error[i]);	
+	printf ("%d\t%.8g\t%.8g\t%.8g\n",i,i*(2*M_PI/n),jk_blocks[i][JK_BIN_COUNT]/JK_BIN_COUNT,jk_error[i]);	
     }
 
-    //printf("Cleaning up\n");
-    fftw_destroy_plan(pdir);
-    fftw_free(hd);
-    fftw_free(hFT);
-
-*/
     return 0;   
 }
 

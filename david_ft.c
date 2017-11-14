@@ -94,7 +94,7 @@ int main(int argc, char **argv)
       //printf("%d %.8g\n", i, corr_h[i]/corr_h[0]);
 
     for (i=0;i<n;i++)
-      printf("%d %.8g\n", i, (hFT[i][0]*hFT[i][0] + hFT[i][1]*hFT[i][1])/(pow(n,2)));
+      printf("%d %.8g\n", i, (hFT[i][0])/(pow(n,2)));//hFT[i][0] is already the modulus
 
     fftw_destroy_plan(pdir);
     fftw_destroy_plan(pinv);

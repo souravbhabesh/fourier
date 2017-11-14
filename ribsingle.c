@@ -12,7 +12,7 @@
 #define PERIOD 10000
 #define RUNMAX 20
 #define NMAX 2000
-#define MAXFRAMES 11000
+#define MAXFRAMES 20000
 
 double v[MAXLENGTH]; // The list of measures
 double h_width[MAXFRAMES][NMAX];
@@ -58,7 +58,8 @@ int main(int argc, char **argv)
 	print_and_exit("I could not open file with simulation run numbers %s\n",fileName);
  
    frames = steps/PERIOD;
-   n = 2*NX; // Number of real data points for which FFT is taken
+   //printf("frames %d\n",frames);
+   n = NX; // Number of real data points for which FFT is taken
    signal_length = n;
    //JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
 
@@ -66,7 +67,8 @@ int main(int argc, char **argv)
    
    int runnum;
    RUNS = 0;
-   while (!feof (file))
+   
+   while (fscanf(file, "%d", &runnum) == 1)// 1 is returned if fscanf reads a number
    {
 	   fscanf (file, "%d", &runnum); // file contains the runs to be analyzed
 	   sprintf(data_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/r%d/width.bin",NX,NY,KAPPA,runnum);
@@ -75,7 +77,7 @@ int main(int argc, char **argv)
 	      print_and_exit("I could not open binary file %s\n",data_file);
 
 	    //We read the data file
-	    fread(h_width,sizeof(double),frames*NX,Fin);
+	    fread(h_width,sizeof(double),MAXFRAMES*NMAX,Fin);//frames*NX,Fin);
 	    fclose(Fin); 
 
 	    /*	Allocating memory for FFT	*/
@@ -83,16 +85,18 @@ int main(int argc, char **argv)
 	    hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*((n/2)+1));
 
 	    // Plan for FFTW	
-	    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_PATIENT);
+	    pdir = fftw_plan_dft_r2c_1d(n,hd,hFT,FFTW_MEASURE);
 
 	    // Now fill in the vector hd; initializing of input array should be done after creating the plan
-	    for(j=0;j<frames/2;j++)
+	    //printf ("RUN %d #frames %d\n",runnum,frames/2);
+	    for(j=0;j<=frames/2;j++)
 	    {
+		//printf("%d\n",j);
 		for(i=0; i<n; i++)
 		{
 			hd[i] = h_width[j][i];
-			//if(run==0 && j==0)
-				//printf("%d\t%.8f\n",i,h_width[j][i]);
+			if(runnum == 1 && j== 2499)
+				printf("%d\t%.8f\n",i,h_width[j][i]);
 			//printf("%.8g\n",hd[i]);
 		}
 	   	/*	Padding with 0's to make it periodic for Correlation evaluation	*/ 
@@ -122,7 +126,7 @@ int main(int argc, char **argv)
 			avg_hFT[RUNS][i]+=power_spectrum_frame[j][i];
 		}
 		avg_hFT[RUNS][i]/=(frames/2);
-		NORM = avg_hFT[RUNS][1];
+		NORM = 1;//avg_hFT[RUNS][1];
 		//printf("%d\t%.8f\n",run,avg_hFT[run][i]);
 	}
 
