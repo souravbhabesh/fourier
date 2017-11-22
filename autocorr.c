@@ -10,18 +10,18 @@
 
 #define MAXLENGTH 10000000
 #define PERIOD 10000
-#define RUNMAX 20
+#define RUNMAX 21
 #define NMAX 20000
 #define MAXFRAMES 20000
 
 double cnode[RUNMAX][MAXFRAMES];
+double data[RUNMAX][MAXFRAMES];
 double tseries[MAXFRAMES];
 double autocorr[RUNMAX][MAXFRAMES];
-double jk_blocks[NMAX][RUNMAX];
 double jk_error[NMAX];
 double error[NMAX]; //RMSE error in |hFT|^2
 
-int NX,NY,RUNS,steps,frames,JK_BIN_COUNT;
+int NX,NY,RUNS,STEPS,FRAMES,JK_BIN_COUNT;
 double KAPPA;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
@@ -32,33 +32,26 @@ int main(int argc, char **argv)
 
    FILE *Fin,*file;
    char data_file[1024],line[256];
-   int i,j,n,signal_length;
+   int i,j,n;
    double *hd,*corr_h;
    fftw_complex *hFT;
    fftw_plan pdir,pinv;
    char const* fileName;
 
    switch (argc){
-   case 6:
+   case 5:
        NX = atoi(argv[1]);
        NY = atoi(argv[2]);
        KAPPA = atof(argv[3]);
-       steps = atoi(argv[4]);
-       fileName = argv[5];
+       STEPS = atoi(argv[4]);
        break;
    default:
-       print_and_exit("Usage Pass command line arguments:NX NY Kappa steps runlist.dat\n");
+       print_and_exit("Usage Pass command line arguments:NX NY KAPPA STEPS\n");
    }
 
-   if(NULL==(file=fopen(fileName,"r")))  
-	print_and_exit("I could not open file with simulation run numbers %s\n",fileName);
  
-   frames = steps/PERIOD;
-   n = frames/2; // Number of real data points for which FFT is taken
-   signal_length = n;
-   //JK_BIN_COUNT = RUNS; //Number of Jack Knife bins
-
-   //for(int run=0;run<RUNS;run++)
+   FRAMES = STEPS/PERIOD;
+   n = 0.8*FRAMES; // Number of real data points for which FFT is taken, discarding top 20% data
  
    sprintf(data_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/cnode.bin",NX,NY,KAPPA);
    //printf("%s\n",data_file);
@@ -68,30 +61,52 @@ int main(int argc, char **argv)
    //printf("frames %d\n",frames);
 
    //We read the data file
-   fread(cnode,sizeof(double),RUNMAX*MAXFRAMES,Fin);
+   //fread(cnode,sizeof(double),RUNMAX*MAXFRAMES,Fin);
+   fread(&RUNS,sizeof(int),1,Fin);
+   printf("RUNS %d\n",RUNS);
+   for(int i=0;i<RUNS;i++)
+   {
+        for(int j=0;j<FRAMES;j++)
+        {
+                fread(&cnode[i][j],sizeof(double),1,Fin);
+        }
+   }
    fclose(Fin);
 
-   for(int i=0;i<frames;i++)
+   // Allocating space for carring out FFT's
+   hd = (double *) fftw_malloc(sizeof(double)*n*2);
+   corr_h = (double *) fftw_malloc(sizeof(double)*n*2); 
+   hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
+             
+    // We prepare the FFTW
+    pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_MEASURE);
+    pinv = fftw_plan_dft_c2r_1d(2*n,hFT,corr_h,FFTW_MEASURE);
+
+   double avg;
+   int iblo,start=0.2*FRAMES;
+   for(i=0; i<n; i++)
    {
-	//printf("%d\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\t%.8f\n",i,cnode[0][i],cnode[1][i],cnode[2][i],cnode[3][i],cnode[4][i],cnode[5][i]);
-	//tseries[i]=cnode[0][i];
+     data[RUNS][i]=0;
+     for(iblo=0; iblo<RUNS; iblo++) // FIX NUMBER OF RUNS
+       data[RUNS][i] += cnode[iblo][start+i];
+     for(iblo=0; iblo<RUNS; iblo++) // FIX NUMBER OF RUNS
+       data[iblo][i] = (data[RUNS][i]-cnode[iblo][start+i])/ (RUNS-1.0);
+     data[RUNS][i] /=(RUNS*1.0);
    }
+     	
 
-   int runnum,run_cnt=0;
-   while (fscanf(file, "%d", &runnum) == 1)// 1 is returned if fscanf reads a number
+   for(iblo=0; iblo<=RUNS; iblo++)
    {
-	   //printf("Run # %d \n",runnum);
-	   hd = (double *) fftw_malloc(sizeof(double)*n*2);
-	   corr_h = (double *) fftw_malloc(sizeof(double)*n*2);	
-	   hFT = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)*(n+1));
+     	   avg=0;
 
-	   // We prepare the FFTW
-	   pdir = fftw_plan_dft_r2c_1d(2*n,hd,hFT,FFTW_MEASURE);
-	   pinv = fftw_plan_dft_c2r_1d(2*n,hFT,corr_h,FFTW_MEASURE);
+	   for(i=0; i<n; i++)
+	     avg += data[iblo][i];
+
+	   avg /= n;
 
 	   // Now fill in the vector hd
 	   for(i=0; i<n; i++)
-	     hd[i] = cnode[runnum-1][i];
+	     hd[i] = data[iblo][i] - avg;
 	   for(i=n; i<2*n; i++)
 	     hd[i]=0;
 
@@ -110,7 +125,7 @@ int main(int argc, char **argv)
     	   for(i=0; i<n; i++)
 	   {
       		corr_h[i] /= (n-i);
-		autocorr[runnum-1][i] = corr_h[i]/corr_h[0];
+		autocorr[iblo][i] = corr_h[i]/corr_h[0];
 	   }
 
 	   //for (i=0;i<n;i++)
@@ -118,7 +133,6 @@ int main(int argc, char **argv)
 
 	  //for (i=0;i<n;i++)
       		//printf("%d %.8g\n", i, corr_h[i]/corr_h[0]); 
-	  run_cnt++;
    }
 /*
    for (i=0;i<n;i++)
@@ -130,7 +144,7 @@ int main(int argc, char **argv)
    fftw_free(hFT);
    fftw_free(corr_h);
 
-    JK_BIN_COUNT = run_cnt; //Number of Jack Knife bins
+    /*JK_BIN_COUNT = run_cnt; //Number of Jack Knife bins
 	   
     //		Jack Knife Error estimation	
     
@@ -151,7 +165,7 @@ int main(int argc, char **argv)
         { 
 		jk_blocks[i][j]= (jk_blocks[i][JK_BIN_COUNT] - autocorr[j][i])/(JK_BIN_COUNT-1);	
 	}
-    }
+    }*/
 
     double jk_error_term1[NMAX],jk_error_term2[NMAX];
     //		Jack Knife Error	
@@ -162,11 +176,12 @@ int main(int argc, char **argv)
 	jk_error_term2[i]=0;
     } 
 
+    JK_BIN_COUNT=RUNS; //FIX RUN NUMBERS
     for(i=0;i<n;i++)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         {
-		jk_error_term1[i] += jk_blocks[i][j] * jk_blocks[i][j];
+		jk_error_term1[i] += autocorr[j][i] * autocorr[j][i];
 	}
 	jk_error_term1[i] = (1.0/JK_BIN_COUNT) * jk_error_term1[i];
     }
@@ -175,12 +190,12 @@ int main(int argc, char **argv)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         {
-		jk_error_term2[i] += (1.0/JK_BIN_COUNT) * jk_blocks[i][j];
+		jk_error_term2[i] += (1.0/JK_BIN_COUNT) * autocorr[j][i];
 	}
 	jk_error_term2[i] = jk_error_term2[i] * jk_error_term2[i];
         //	JK Error	
 	jk_error[i] = sqrt((JK_BIN_COUNT-1)*(jk_error_term1[i] - jk_error_term2[i]));
-	printf ("%d\t%.8g\t%.8g\t%.8g\n",i,i*(2*M_PI/n),jk_blocks[i][JK_BIN_COUNT]/JK_BIN_COUNT,jk_error[i]);	
+	printf ("%d\t\t%.8g\t%.8g\n",i,autocorr[JK_BIN_COUNT][i],jk_error[i]);	
     }
 
     return 0;   
